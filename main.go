@@ -26,7 +26,8 @@ func main() {
 
 	byURL := make(map[string][]entry)
 	for _, e := range entries {
-		byURL[e.URL] = append(byURL[e.URL], e)
+		key := normalizeURL(e.URL)
+		byURL[key] = append(byURL[key], e)
 	}
 
 	var dupeURLs []string
@@ -50,11 +51,14 @@ func main() {
 			if name == "" {
 				name = "(untitled)"
 			}
-			if e.Path == "" {
-				fmt.Printf("  - %s\n", name)
-			} else {
-				fmt.Printf("  - %s [%s]\n", name, e.Path)
+			line := "  - " + name
+			if e.Path != "" {
+				line += " [" + e.Path + "]"
 			}
+			if e.URL != url {
+				line += " (" + e.URL + ")"
+			}
+			fmt.Println(line)
 		}
 	}
 }

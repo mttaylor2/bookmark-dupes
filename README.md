@@ -55,11 +55,17 @@ layout — use `-file` to point at it.
 
 ## Limitations right now
 
-Matching is on the literal URL string. `example.com/page` and
-`example.com/page/` count as different bookmarks, as do the same page with
-and without tracking query parameters. Firefox isn't supported yet either
-(it keeps bookmarks in a SQLite database rather than JSON, so it needs
-different handling).
+URLs are compared after normalizing: `http` and `https` are treated as the
+same scheme, a trailing slash on the path is ignored, the host is
+lowercased, and common tracking parameters (`utm_*`, `gclid`, `fbclid`, and
+similar) are stripped before comparing. It's still a plain string match
+after that, so different query parameters, different paths that redirect to
+the same place, or `www.` vs no `www.` still count as separate bookmarks.
+When a duplicate group includes URLs that don't match exactly, the actual
+URL is shown next to each entry so you can see what varied.
+
+Firefox isn't supported yet (it keeps bookmarks in a SQLite database rather
+than JSON, so it needs different handling).
 
 ## License
 
