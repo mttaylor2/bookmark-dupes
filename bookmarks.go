@@ -41,6 +41,41 @@ func loadEntries(path string) ([]entry, error) {
 		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
 
+	format, err := detectFormat(raw)
+	if err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+
+	if format == "firefox" {
+		return loadFirefoxEntries(raw, path)
+	}
+	return loadChromeEntries(raw, path)
+}
+
+// detectFormat tells Chrome's Bookmarks format from a Firefox JSON export.
+// Both are plain JSON but shaped differently: Chrome nests everything under
+// a "roots" object, while a Firefox export is itself the root node and
+// carries a moz-place "type" (or, in older exports, "root") directly.
+func detectFormat(raw []byte) (string, error) {
+	var probe struct {
+		Roots json.RawMessage `json:"roots"`
+		Type  string          `json:"type"`
+		Root  string          `json:"root"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return "", err
+	}
+	switch {
+	case probe.Roots != nil:
+		return "chrome", nil
+	case probe.Type != "" || probe.Root != "":
+		return "firefox", nil
+	default:
+		return "", fmt.Errorf("unrecognized bookmarks file format")
+	}
+}
+
+func loadChromeEntries(raw []byte, path string) ([]entry, error) {
 	var bf bookmarksFile
 	if err := json.Unmarshal(raw, &bf); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
@@ -51,6 +86,54 @@ func loadEntries(path string) ([]entry, error) {
 	walk(bf.Roots.Other, "", &out)
 	walk(bf.Roots.Synced, "", &out)
 	return out, nil
+}
+
+// firefoxNode mirrors the shape of an uncompressed Firefox bookmarks JSON
+// backup. Firefox's automatic backups are jsonlz4-compressed and need
+// decompressing before this tool can read them - see the README. Firefox
+// tags every node with a "type" string instead of splitting folders and
+// bookmarks into separate fields the way Chrome does.
+type firefoxNode struct {
+	Type     string        `json:"type"`
+	Title    string        `json:"title"`
+	URI      string        `json:"uri"`
+	Children []firefoxNode `json:"children"`
+}
+
+const firefoxBookmarkType = "text/x-moz-place"
+
+func loadFirefoxEntries(raw []byte, path string) ([]entry, error) {
+	var root firefoxNode
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+
+	var out []entry
+	walkFirefox(root, "", &out)
+	return out, nil
+}
+
+func walkFirefox(n firefoxNode, path string, out *[]entry) {
+	if n.Type == firefoxBookmarkType {
+		if n.URI == "" {
+			return
+		}
+		*out = append(*out, entry{Name: n.Title, URL: n.URI, Path: path})
+		return
+	}
+
+	childPath := path
+	if n.Title != "" {
+		if path == "" {
+			childPath = n.Title
+		} else {
+			childPath = path + "/" + n.Title
+		}
+	}
+
+	for _, c := range n.Children {
+		walkFirefox(c, childPath, out)
+	}
 }
 
 func walk(n node, path string, out *[]entry) {

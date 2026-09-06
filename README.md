@@ -7,7 +7,10 @@ command-line tool that answers exactly one question: which URLs appear more
 than once in my bookmarks, and where are the copies?
 
 It reads Chrome's `Bookmarks` file directly (it's plain JSON, no database
-involved) and reports exact URL duplicates grouped by folder path.
+involved) and reports exact URL duplicates grouped by folder path. It also
+reads a Firefox bookmarks JSON export - the file format differs from
+Chrome's, so `-file` accepts either and the tool figures out which one it's
+looking at.
 
 ## Usage
 
@@ -64,8 +67,13 @@ the same place, or `www.` vs no `www.` still count as separate bookmarks.
 When a duplicate group includes URLs that don't match exactly, the actual
 URL is shown next to each entry so you can see what varied.
 
-Firefox isn't supported yet (it keeps bookmarks in a SQLite database rather
-than JSON, so it needs different handling).
+Firefox keeps its live bookmarks in a SQLite database, not JSON, so this
+tool can't read your profile directly - export first (in Firefox, "Bookmarks
+> Manage Bookmarks > Import and Backup > Backup..."). That produces a
+`.jsonlz4` file, which is JSON compressed with a Mozilla-specific framing
+around lz4; decompress it to plain JSON before pointing `-file` at it, since
+this tool has no decompression support (staying dependency-free means no
+lz4 library, and hand-rolling one isn't worth it for a personal tool).
 
 ## License
 
