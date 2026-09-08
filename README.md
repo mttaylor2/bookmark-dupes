@@ -38,6 +38,29 @@ no duplicate bookmarks found
 (That second line only shows up if there genuinely are none — it won't print
 alongside real duplicates.)
 
+Pass `-json` for machine-readable output instead - a JSON array of groups,
+each with the normalized key, a count, and the entries that share it:
+
+```
+go run . -json
+```
+
+```json
+[
+  {
+    "key": "http://news.ycombinator.com/item?id=32154123",
+    "count": 2,
+    "entries": [
+      { "name": "HN: a thing I meant to read", "url": "https://news.ycombinator.com/item?id=32154123", "path": "Bookmarks Bar/To Read" },
+      { "name": "", "url": "https://news.ycombinator.com/item?id=32154123", "path": "Imported/Old Reading List" }
+    ]
+  }
+]
+```
+
+With `-json`, no duplicates prints an empty array (`[]`) rather than the
+text-mode message.
+
 ## Building
 
 ```
