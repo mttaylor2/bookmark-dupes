@@ -61,6 +61,25 @@ go run . -json
 With `-json`, no duplicates prints an empty array (`[]`) rather than the
 text-mode message.
 
+Pass `-write` to actually remove the duplicates, keeping the first copy of
+each (bookmark bar, then other, then synced - the same order the report
+above lists them in) and writing the result back to the Bookmarks file:
+
+```
+go run . -write
+```
+
+A few things about `-write` worth knowing before you use it:
+
+- It only works on a live Chrome `Bookmarks` file, not a Firefox export -
+  there's no live Firefox file to write back to.
+- Close Chrome first. Chrome rewrites this file from memory when it exits,
+  which would overwrite whatever `-write` just wrote.
+- The original file is copied to `<file>.bak` before anything is changed.
+- Chrome stores a checksum of the bookmark tree in the file; `-write` drops
+  it rather than trying to reproduce Chrome's checksum algorithm, so Chrome
+  just recomputes a fresh one the next time it saves.
+
 ## Building
 
 ```

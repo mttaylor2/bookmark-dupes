@@ -13,6 +13,7 @@ import (
 func main() {
 	filePath := flag.String("file", defaultBookmarksPath(), "path to Chrome's Bookmarks JSON file")
 	jsonOutput := flag.Bool("json", false, "print duplicates as JSON instead of text")
+	write := flag.Bool("write", false, "remove duplicate bookmarks (keeping the first occurrence) and write the file back; Chrome format only, original saved to <file>.bak")
 	flag.Parse()
 
 	if *filePath == "" {
@@ -42,30 +43,39 @@ func main() {
 
 	if *jsonOutput {
 		printJSON(dupeURLs, byURL)
-		return
-	}
-
-	if len(dupeURLs) == 0 {
+	} else if len(dupeURLs) == 0 {
 		fmt.Println("no duplicate bookmarks found")
-		return
+	} else {
+		for _, url := range dupeURLs {
+			es := byURL[url]
+			fmt.Printf("%s (%d copies)\n", url, len(es))
+			for _, e := range es {
+				name := e.Name
+				if name == "" {
+					name = "(untitled)"
+				}
+				line := "  - " + name
+				if e.Path != "" {
+					line += " [" + e.Path + "]"
+				}
+				if e.URL != url {
+					line += " (" + e.URL + ")"
+				}
+				fmt.Println(line)
+			}
+		}
 	}
 
-	for _, url := range dupeURLs {
-		es := byURL[url]
-		fmt.Printf("%s (%d copies)\n", url, len(es))
-		for _, e := range es {
-			name := e.Name
-			if name == "" {
-				name = "(untitled)"
-			}
-			line := "  - " + name
-			if e.Path != "" {
-				line += " [" + e.Path + "]"
-			}
-			if e.URL != url {
-				line += " (" + e.URL + ")"
-			}
-			fmt.Println(line)
+	if *write {
+		removed, backup, err := writeDeduped(*filePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "bookmark-dupes: %v\n", err)
+			os.Exit(1)
+		}
+		if removed == 0 {
+			fmt.Println("no duplicates to remove")
+		} else {
+			fmt.Printf("removed %d duplicate bookmark(s), original saved to %s\n", removed, backup)
 		}
 	}
 }

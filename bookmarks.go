@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -221,6 +222,121 @@ func normalizeURL(raw string) string {
 		key.WriteString(u.Fragment)
 	}
 	return key.String()
+}
+
+// writeDeduped removes duplicate bookmarks from a Chrome Bookmarks file and
+// writes the result back to disk, keeping the first occurrence of each
+// duplicated URL (bookmark bar, then other, then synced - the same order
+// used to build the dupe report, so "first" means the same thing in both
+// places). The original file is copied to path+".bak" first: this overwrites
+// a file Chrome itself owns, and a mistake here is expensive to undo by hand.
+//
+// This only supports Chrome's format. The Firefox JSON this tool reads is a
+// one-off export, not a live file - Firefox keeps its real bookmarks in a
+// SQLite database, so there's nothing sensible to write back to.
+func writeDeduped(path string) (removed int, backupPath string, err error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0, "", fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	format, err := detectFormat(raw)
+	if err != nil {
+		return 0, "", fmt.Errorf("parsing %s: %w", path, err)
+	}
+	if format != "chrome" {
+		return 0, "", fmt.Errorf("-write only supports Chrome's Bookmarks format, not a Firefox export")
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, "", fmt.Errorf("stat %s: %w", path, err)
+	}
+
+	// Decode generically rather than into our node struct: node only knows
+	// about type/name/url/children, and re-encoding it would silently drop
+	// every field Chrome actually relies on (id, guid, date_added, ...).
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var doc map[string]interface{}
+	if err := dec.Decode(&doc); err != nil {
+		return 0, "", fmt.Errorf("parsing %s: %w", path, err)
+	}
+
+	roots, ok := doc["roots"].(map[string]interface{})
+	if !ok {
+		return 0, "", fmt.Errorf("parsing %s: missing roots", path)
+	}
+
+	seen := make(map[string]bool)
+	for _, key := range []string{"bookmark_bar", "other", "synced"} {
+		r, ok := roots[key].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		_, n := removeDuplicateURLs(r, seen)
+		removed += n
+	}
+
+	if removed == 0 {
+		return 0, "", nil
+	}
+
+	// Chrome stores an MD5 checksum of the bookmark tree and uses a mismatch
+	// to detect the file was edited outside Chrome. Dropping it here means
+	// Chrome just recomputes it next time it saves, instead of us having to
+	// reverse-engineer and reproduce its checksum algorithm.
+	delete(doc, "checksum")
+
+	backupPath = path + ".bak"
+	if err := os.WriteFile(backupPath, raw, info.Mode().Perm()); err != nil {
+		return 0, "", fmt.Errorf("writing backup %s: %w", backupPath, err)
+	}
+
+	out, err := json.MarshalIndent(doc, "", "   ")
+	if err != nil {
+		return 0, "", fmt.Errorf("encoding deduplicated bookmarks: %w", err)
+	}
+	if err := os.WriteFile(path, out, info.Mode().Perm()); err != nil {
+		return 0, "", fmt.Errorf("writing %s: %w", path, err)
+	}
+
+	return removed, backupPath, nil
+}
+
+// removeDuplicateURLs walks a folder node (decoded as generic JSON, so
+// whatever fields Chrome put there besides type/url/children ride along
+// unchanged) and drops every bookmark whose normalized URL was already seen
+// earlier in the walk, keeping the first occurrence. It reports whether the
+// node it was called on should be kept by its parent, and how many bookmarks
+// it removed from underneath it.
+func removeDuplicateURLs(n map[string]interface{}, seen map[string]bool) (keep bool, removed int) {
+	if t, _ := n["type"].(string); t == "url" {
+		u, _ := n["url"].(string)
+		key := normalizeURL(u)
+		if seen[key] {
+			return false, 1
+		}
+		seen[key] = true
+		return true, 0
+	}
+
+	children, _ := n["children"].([]interface{})
+	kept := children[:0]
+	for _, c := range children {
+		cm, ok := c.(map[string]interface{})
+		if !ok {
+			kept = append(kept, c)
+			continue
+		}
+		keepChild, r := removeDuplicateURLs(cm, seen)
+		removed += r
+		if keepChild {
+			kept = append(kept, c)
+		}
+	}
+	n["children"] = kept
+	return true, removed
 }
 
 // defaultBookmarksPath guesses where Chrome keeps its bookmarks file for the
