@@ -268,6 +268,34 @@ func TestWriteDedupedNoDuplicatesLeavesFileUntouched(t *testing.T) {
 	}
 }
 
+func TestFolderCounts(t *testing.T) {
+	entries := []entry{
+		{Name: "a", URL: "https://a.example.com/", Path: "Bookmarks Bar/To Read"},
+		{Name: "b", URL: "https://b.example.com/", Path: "Bookmarks Bar/To Read"},
+		{Name: "c", URL: "https://c.example.com/", Path: "Other Bookmarks"},
+		{Name: "d", URL: "https://d.example.com/", Path: "Other Bookmarks"},
+		{Name: "e", URL: "https://e.example.com/", Path: "Other Bookmarks"},
+		{Name: "f", URL: "https://f.example.com/", Path: ""},
+	}
+
+	// count desc, path asc for ties.
+	want := []folderCount{
+		{Path: "Other Bookmarks", Count: 3},
+		{Path: "Bookmarks Bar/To Read", Count: 2},
+		{Path: "(root)", Count: 1},
+	}
+
+	got := folderCounts(entries)
+	if len(got) != len(want) {
+		t.Fatalf("got %d folders, want %d: %+v", len(got), len(want), got)
+	}
+	for i, f := range got {
+		if f != want[i] {
+			t.Errorf("folder %d = %+v, want %+v", i, f, want[i])
+		}
+	}
+}
+
 func TestWriteDedupedRejectsFirefoxFormat(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "firefox.json")

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -222,6 +223,40 @@ func normalizeURL(raw string) string {
 		key.WriteString(u.Fragment)
 	}
 	return key.String()
+}
+
+// folderCount is one row of the -stats report: a folder path and how many
+// bookmarks (not subfolders) sit directly in it.
+type folderCount struct {
+	Path  string
+	Count int
+}
+
+// folderCounts tallies bookmarks per folder path, busiest folder first (ties
+// broken alphabetically so the output order is stable across runs).
+// Bookmarks sitting at the root of a browser's bookmark list, outside any
+// named folder, are grouped under "(root)".
+func folderCounts(entries []entry) []folderCount {
+	byPath := make(map[string]int)
+	for _, e := range entries {
+		path := e.Path
+		if path == "" {
+			path = "(root)"
+		}
+		byPath[path]++
+	}
+
+	counts := make([]folderCount, 0, len(byPath))
+	for path, n := range byPath {
+		counts = append(counts, folderCount{Path: path, Count: n})
+	}
+	sort.Slice(counts, func(i, j int) bool {
+		if counts[i].Count != counts[j].Count {
+			return counts[i].Count > counts[j].Count
+		}
+		return counts[i].Path < counts[j].Path
+	})
+	return counts
 }
 
 // writeDeduped removes duplicate bookmarks from a Chrome Bookmarks file and

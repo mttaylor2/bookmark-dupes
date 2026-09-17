@@ -80,6 +80,25 @@ A few things about `-write` worth knowing before you use it:
   it rather than trying to reproduce Chrome's checksum algorithm, so Chrome
   just recomputes a fresh one the next time it saves.
 
+Pass `-stats` to print how many bookmarks live in each folder instead of the
+duplicate report - useful for finding which folders have gotten out of hand:
+
+```
+go run . -stats
+```
+
+```
+   87  Bookmarks Bar/To Read
+   42  Other Bookmarks
+   13  Bookmarks Bar/Work
+    4  (root)
+```
+
+Folders are listed busiest first; bookmarks that aren't filed into any
+folder are grouped under `(root)`. `-stats` only counts bookmarks filed
+directly in a folder, not in its subfolders, so a parent and its children are
+listed as separate rows.
+
 ## Building
 
 ```

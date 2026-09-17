@@ -14,6 +14,7 @@ func main() {
 	filePath := flag.String("file", defaultBookmarksPath(), "path to Chrome's Bookmarks JSON file")
 	jsonOutput := flag.Bool("json", false, "print duplicates as JSON instead of text")
 	write := flag.Bool("write", false, "remove duplicate bookmarks (keeping the first occurrence) and write the file back; Chrome format only, original saved to <file>.bak")
+	stats := flag.Bool("stats", false, "print bookmark counts per folder instead of the duplicate report")
 	flag.Parse()
 
 	if *filePath == "" {
@@ -25,6 +26,13 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "bookmark-dupes: %v\n", err)
 		os.Exit(1)
+	}
+
+	if *stats {
+		for _, f := range folderCounts(entries) {
+			fmt.Printf("%5d  %s\n", f.Count, f.Path)
+		}
+		return
 	}
 
 	byURL := make(map[string][]entry)
