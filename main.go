@@ -29,8 +29,13 @@ func main() {
 	}
 
 	if *stats {
-		for _, f := range folderCounts(entries) {
-			fmt.Printf("%5d  %s\n", f.Count, f.Path)
+		counts := folderCounts(entries)
+		if *jsonOutput {
+			printStatsJSON(counts)
+		} else {
+			for _, f := range counts {
+				fmt.Printf("%5d  %s\n", f.Count, f.Path)
+			}
 		}
 		return
 	}
@@ -101,6 +106,27 @@ type jsonGroup struct {
 	Key     string      `json:"key"`
 	Count   int         `json:"count"`
 	Entries []jsonEntry `json:"entries"`
+}
+
+// jsonFolderCount is the -stats -json output shape, kept separate from
+// folderCount for the same reason jsonEntry is kept separate from entry.
+type jsonFolderCount struct {
+	Path  string `json:"path"`
+	Count int    `json:"count"`
+}
+
+func printStatsJSON(counts []folderCount) {
+	out := make([]jsonFolderCount, 0, len(counts))
+	for _, f := range counts {
+		out = append(out, jsonFolderCount{Path: f.Path, Count: f.Count})
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(out); err != nil {
+		fmt.Fprintf(os.Stderr, "bookmark-dupes: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func printJSON(dupeURLs []string, byURL map[string][]entry) {

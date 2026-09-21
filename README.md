@@ -99,6 +99,19 @@ folder are grouped under `(root)`. `-stats` only counts bookmarks filed
 directly in a folder, not in its subfolders, so a parent and its children are
 listed as separate rows.
 
+`-stats` also takes `-json`, for the same reason the duplicate report does:
+
+```
+go run . -stats -json
+```
+
+```json
+[
+  { "path": "Bookmarks Bar/To Read", "count": 87 },
+  { "path": "Other Bookmarks", "count": 42 }
+]
+```
+
 ## Building
 
 ```
