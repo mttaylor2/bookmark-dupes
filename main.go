@@ -15,6 +15,7 @@ func main() {
 	jsonOutput := flag.Bool("json", false, "print duplicates as JSON instead of text")
 	write := flag.Bool("write", false, "remove duplicate bookmarks (keeping the first occurrence) and write the file back; Chrome format only, original saved to <file>.bak")
 	stats := flag.Bool("stats", false, "print bookmark counts per folder instead of the duplicate report")
+	recursive := flag.Bool("recursive", false, "with -stats, include subfolder bookmarks in each folder's count")
 	flag.Parse()
 
 	if *filePath == "" {
@@ -29,7 +30,12 @@ func main() {
 	}
 
 	if *stats {
-		counts := folderCounts(entries)
+		var counts []folderCount
+		if *recursive {
+			counts = recursiveFolderCounts(entries)
+		} else {
+			counts = folderCounts(entries)
+		}
 		if *jsonOutput {
 			printStatsJSON(counts)
 		} else {

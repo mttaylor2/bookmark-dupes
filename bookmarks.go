@@ -259,6 +259,42 @@ func folderCounts(entries []entry) []folderCount {
 	return counts
 }
 
+// recursiveFolderCounts tallies bookmarks per folder path the same way
+// folderCounts does, except a folder's count includes every bookmark filed
+// in its subfolders too. A bookmark at "Bar/To Read/Go" is counted under
+// "Bar", "Bar/To Read", and "Bar/To Read/Go" - one increment per ancestor
+// path, so a parent folder's count is always at least the sum of its
+// children's.
+func recursiveFolderCounts(entries []entry) []folderCount {
+	byPath := make(map[string]int)
+	for _, e := range entries {
+		if e.Path == "" {
+			byPath["(root)"]++
+			continue
+		}
+
+		parts := strings.Split(e.Path, "/")
+		prefix := parts[0]
+		byPath[prefix]++
+		for _, part := range parts[1:] {
+			prefix = prefix + "/" + part
+			byPath[prefix]++
+		}
+	}
+
+	counts := make([]folderCount, 0, len(byPath))
+	for path, n := range byPath {
+		counts = append(counts, folderCount{Path: path, Count: n})
+	}
+	sort.Slice(counts, func(i, j int) bool {
+		if counts[i].Count != counts[j].Count {
+			return counts[i].Count > counts[j].Count
+		}
+		return counts[i].Path < counts[j].Path
+	})
+	return counts
+}
+
 // writeDeduped removes duplicate bookmarks from a Chrome Bookmarks file and
 // writes the result back to disk, keeping the first occurrence of each
 // duplicated URL (bookmark bar, then other, then synced - the same order

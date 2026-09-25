@@ -95,9 +95,22 @@ go run . -stats
 ```
 
 Folders are listed busiest first; bookmarks that aren't filed into any
-folder are grouped under `(root)`. `-stats` only counts bookmarks filed
-directly in a folder, not in its subfolders, so a parent and its children are
-listed as separate rows.
+folder are grouped under `(root)`. By default `-stats` only counts bookmarks
+filed directly in a folder, not in its subfolders, so a parent and its
+children are listed as separate rows. Pass `-recursive` to fold subfolder
+counts into their parents instead:
+
+```
+go run . -stats -recursive
+```
+
+```
+  103  Bookmarks Bar
+   87  Bookmarks Bar/To Read
+   42  Other Bookmarks
+   13  Bookmarks Bar/Work
+    4  (root)
+```
 
 `-stats` also takes `-json`, for the same reason the duplicate report does:
 

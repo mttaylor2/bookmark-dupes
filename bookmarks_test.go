@@ -296,6 +296,35 @@ func TestFolderCounts(t *testing.T) {
 	}
 }
 
+func TestRecursiveFolderCounts(t *testing.T) {
+	entries := []entry{
+		{Name: "a", URL: "https://a.example.com/", Path: "Bar/To Read/Go"},
+		{Name: "b", URL: "https://b.example.com/", Path: "Bar/To Read"},
+		{Name: "c", URL: "https://c.example.com/", Path: "Bar"},
+		{Name: "d", URL: "https://d.example.com/", Path: "Other"},
+		{Name: "e", URL: "https://e.example.com/", Path: ""},
+	}
+
+	// count desc, path asc for ties.
+	want := []folderCount{
+		{Path: "Bar", Count: 3},
+		{Path: "Bar/To Read", Count: 2},
+		{Path: "(root)", Count: 1},
+		{Path: "Bar/To Read/Go", Count: 1},
+		{Path: "Other", Count: 1},
+	}
+
+	got := recursiveFolderCounts(entries)
+	if len(got) != len(want) {
+		t.Fatalf("got %d folders, want %d: %+v", len(got), len(want), got)
+	}
+	for i, f := range got {
+		if f != want[i] {
+			t.Errorf("folder %d = %+v, want %+v", i, f, want[i])
+		}
+	}
+}
+
 func TestWriteDedupedRejectsFirefoxFormat(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "firefox.json")
